@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8f5e"/><stop offset="1" stop-color="#e5412e"/></linearGradient>
+ <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d2b3c"/><stop offset="1" stop-color="#1c171d"/></linearGradient>
+ <clipPath id="ph"><rect x="-108" y="-98" width="216" height="164" rx="12"/></clipPath>
+ <filter id="sh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#6b1607" flood-opacity=".38"/></filter>
+</defs>
+<clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath><g clip-path="url(#r)"><rect width="512" height="512" fill="url(#bg)"/>
+<g transform="translate(246 256) rotate(-8)" filter="url(#sh)">
+  <rect x="-126" y="-116" width="252" height="234" rx="24" fill="#fffaf6"/>
+  <g clip-path="url(#ph)">
+    <rect x="-108" y="-98" width="216" height="164" fill="url(#sky)"/>
+    <circle cx="48" cy="-48" r="20" fill="#ffd166"/>
+    <path d="M-108 66 L-46 -14 L-8 30 L30 -4 L108 66Z" fill="#ff8f5e"/>
+    <path d="M-108 66 L-46 -14 L-22 14 L-62 66Z" fill="#ffc2ab"/>
+  </g>
+</g>
+<g transform="translate(340 336)" filter="url(#sh)">
+  <circle r="60" fill="#1b1719"/>
+  <circle r="38" fill="none" stroke="#fffaf6" stroke-width="9"/>
+  <path d="M 13 -12 A 17.5 17.5 0 1 0 13 12" fill="none" stroke="#ff7a52" stroke-width="10" stroke-linecap="round"/>
+</g>
+</g></svg>
