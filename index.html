@@ -218,7 +218,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.3.0';
+const VERSION='1.4.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
@@ -491,23 +491,56 @@ $('#go').addEventListener('click',async()=>{
   resultView();
 });
 function close(){ov.classList.remove('show');busy=false;if(cur&&cur.type==='video'&&cur.el)cur.el.play().catch(()=>{});render()}
-async function saveOne(o){
+/* ---------- saving: chosen folder (File System Access), claude downloads, or browser download ---------- */
+const fsa=(()=>{try{return 'showDirectoryPicker' in window&&window.self===window.top}catch(e){return false}})();
+let saveDir=null;
+const idb=(mode,fn)=>new Promise((res,rej)=>{const r=indexedDB.open('wm',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+  r.onsuccess=()=>{const tx=r.result.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error)};r.onerror=()=>rej(r.error)});
+if(fsa)idb('readonly',st=>st.get('dir')).then(d=>{if(d)saveDir=d}).catch(()=>{});
+async function getDir(pick){
+  let d=pick?null:saveDir;
+  if(d){let p='prompt';try{p=d.queryPermission?await d.queryPermission({mode:'readwrite'}):'prompt';if(p!=='granted')p=await d.requestPermission({mode:'readwrite'})}catch(e){p='denied'}if(p!=='granted')d=null}
+  if(!d){d=await showDirectoryPicker({id:'wm-out',mode:'readwrite',startIn:'pictures'});saveDir=d;idb('readwrite',st=>st.put(d,'dir')).catch(()=>{})}
+  return d;
+}
+async function writeTo(d,o){
+  const base=o.name.replace(/\.[^.]+$/,''),ext=o.name.slice(base.length);let name=o.name,i=2;
+  for(;;){try{await d.getFileHandle(name);name=`${base} (${i++})${ext}`}catch(e){break}}
+  const fh=await d.getFileHandle(name,{create:true}),w=await fh.createWritable();await w.write(o.blob);await w.close();return name;
+}
+async function download(o){
   if(dl){try{await dl.save({filename:o.name,data:o.blob});return true}catch(e){if(e&&e.code==='declined')return false}}
   const u=URL.createObjectURL(o.blob),a=document.createElement('a');a.href=u;a.download=o.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return true;
+}
+async function saveSet(list,mode){ // mode: 'dir' | 'pick' | 'dl'
+  if(mode!=='dl'){
+    let d;try{d=await getDir(mode==='pick')}catch(e){if(e&&e.name!=='AbortError')toast('沒辦法打開資料夾，改用下載');else return 0;mode='dl'}
+    if(d){let n=0;for(const o of list){try{await writeTo(d,o);n++}catch(e){toast('寫入失敗：'+(e.message||e.name));break}}
+      if(n)toast(`已存 ${n} 個到「${d.name}」`);return n}
+  }
+  let n=0;for(const o of list){if(await download(o))n++;if(!dl&&list.length>1)await new Promise(r=>setTimeout(r,600))}
+  if(n)toast(dl?`已儲存 ${n} 個`:`已存到「下載」資料夾（${n} 個）`);return n;
 }
 function resultView(){
   const outs=items.filter(i=>i.out),files=outs.map(i=>new File([i.out.blob],i.out.name,{type:i.out.blob.type}));
   let canShare=false;try{canShare=!!(navigator.canShare&&files.length&&navigator.canShare({files}))}catch(e){}
-  const webm=outs.some(i=>i.out.ext==='webm');
+  const webm=outs.some(i=>i.out.ext==='webm'),many=outs.length>1,dis=outs.length?'':'disabled';
+  const main=fsa?(saveDir?`<button class="pri" id="svDir" ${dis}>${ic('export')}存到「${esc(saveDir.name)}」</button><button id="svPick" ${dis}>${ic('addimg')}換資料夾</button>`
+                          :`<button class="pri" id="svPick" ${dis}>${ic('export')}選擇資料夾儲存</button>`)
+                 :`<button class="pri" id="svDl" ${dis}>${ic('export')}${many?'全部儲存':'儲存'}</button>`;
   card.innerHTML=`<h2>${cancel?'已停止':'完成了！'} ${outs.length} / ${items.length}</h2>
-   <div class="acts"><button class="pri" id="svAll" ${outs.length?'':'disabled'}>${ic('export')}${outs.length>1?'全部儲存':'儲存'}</button>${canShare?`<button id="shAll">${ic('share')}分享</button>`:''}</div>
+   <div class="acts">${main}</div>
+   <div class="acts">${fsa?`<button id="svDl" ${dis}>${ic('export')}存到「下載」</button>`:''}${canShare?`<button id="shAll">${ic('share')}分享</button>`:''}</div>
    ${webm?'<p class="note">這個瀏覽器只能輸出 WebM 影片，Android 相簿可以播放。</p>':''}
+   ${fsa?'<p class="note">選「Pictures」或「DCIM」裡的資料夾，相簿就看得到。下次會自動記住這個位置。</p>':''}
    <div class="list">${items.map((it,i)=>`<div class="it">${thumb(it)}<div><b>${esc(it.out?it.out.name:it.name)}</b><small class="${it.out?'ok':'bad'}">${it.out?size(it.out.blob):(it.err||'未處理')}</small></div>${it.out?`<button class="ib" data-s="${i}" aria-label="儲存這個檔案">${ic('export')}</button>`:'<span></span>'}</div>`).join('')}</div>
    <button id="cl">繼續編輯</button>`;
   $('#cl').onclick=close;
-  card.querySelectorAll('[data-s]').forEach(b=>b.onclick=async()=>{if(await saveOne(items[+b.dataset.s].out)){b.innerHTML='✓';b.classList.add('on');toast('已儲存')}});
-  if(outs.length)$('#svAll').onclick=async()=>{let n=0;for(const it of outs){if(await saveOne(it.out))n++;if(!dl)await new Promise(r=>setTimeout(r,600))}
-    toast(dl?`已儲存 ${n} 個`:`已存到「下載」資料夾（${n} 個）`)};
+  const all=()=>outs.map(i=>i.out),re=()=>{if(fsa)resultView()};
+  card.querySelectorAll('[data-s]').forEach(b=>b.onclick=async()=>{const n=await saveSet([items[+b.dataset.s].out],fsa?(saveDir?'dir':'pick'):'dl');if(n){b.innerHTML='✓';b.classList.add('on')}});
+  if(!outs.length)return;
+  const bind=(id,mode)=>{const b=$('#'+id);if(b)b.onclick=async()=>{const had=saveDir;await saveSet(all(),mode);if(saveDir!==had)re()}};
+  bind('svDir','dir');bind('svPick','pick');bind('svDl','dl');
   if(canShare)$('#shAll').onclick=()=>navigator.share({files}).catch(()=>{});
 }
 
