@@ -92,7 +92,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 .grid9 button{padding:0;min-height:0;height:36px;width:44px;border-radius:8px;position:relative;background:var(--pane)}
 .grid9 button::after{content:"";position:absolute;width:10px;height:10px;border-radius:50%;background:var(--mute);left:var(--x);top:var(--y);transform:translate(-50%,-50%)}
 .grid9 button:hover::after,.grid9 button:active::after{background:var(--acc)}
-.posw .side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:1}
+.posw .side{display:grid;gap:8px;flex:1;max-width:160px}
 .posw .side button{flex-direction:column;gap:4px;height:72px;font-size:12px;padding:0}
 .note{font-size:13px;color:var(--mute);margin:0}
 @media(min-width:900px){
@@ -117,6 +117,9 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 .it small{font-size:12px;color:var(--mute)}
 .it .ok{color:#1f9d55}.it .bad{color:#d93b2b}
 .acts{display:flex;gap:10px;flex-wrap:wrap}.acts>*{flex:1}
+#trash{position:fixed;z-index:5;display:grid;place-items:center;align-content:center;gap:6px;background:var(--bg);border-top:2px dashed #d93b2b;color:#d93b2b;font-size:14px;font-weight:700;transition:background .15s,color .15s;pointer-events:none}
+#trash .ic{width:34px;height:34px;transition:transform .15s}
+#trash.hot{background:#d93b2b;color:#fff}#trash.hot .ic{transform:scale(1.35) rotate(-8deg)}
 #toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10;white-space:nowrap}
 #toast.show{opacity:1}
 </style>
@@ -198,7 +201,6 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
           <div class="grid9" id="g9"></div>
           <div class="side">
             <button id="dup"><svg class="ic"><use href="#i-copy"/></svg>複製</button>
-            <button id="del"><svg class="ic"><use href="#i-trash"/></svg>刪除</button>
           </div>
         </div>
       </div>
@@ -214,11 +216,12 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 </main>
 
 <div id="ov"><div class="card" id="card"></div></div>
+<div id="trash" class="hide" aria-hidden="true"><svg class="ic"><use href="#i-trash"/></svg><span>拖到這裡刪除</span></div>
 <div id="toast"></div>
 
 <script>
 {
-const VERSION='1.5.3';
+const VERSION='1.6.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
@@ -412,10 +415,13 @@ $('#g9').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||
   const W=cur.w,H=cur.h,d=dims(cx,l,W,H),mg=Math.min(W,H)*.04;
   l.x=[(d.w/2+mg)/W,.5,1-(d.w/2+mg)/W][p[0]];l.y=[(d.h/2+mg)/H,.5,1-(d.h/2+mg)/H][p[1]];render();commit()});
 $('#dup').addEventListener('click',()=>{const c={...L(),x:Math.min(.95,L().x+.04),y:Math.min(.95,L().y+.04)};layers.splice(act+1,0,c);act++;syncAll();commit()});
-$('#del').addEventListener('click',()=>{layers.splice(act,1);act=Math.max(0,act-1);syncAll();commit();if(hist.length)toast('已刪除，可以按上一步復原')});
+function delLayer(){layers.splice(act,1);act=Math.max(0,act-1);syncAll();commit();toast('已刪除，可以按上一步復原')}
 
 /* ---------- drag / pinch on canvas ---------- */
-const pts=new Map();let drag=null,pinch=null,lastTap=0;
+const pts=new Map();let drag=null,pinch=null,lastTap=0,trashRect=null;
+function trash(on){const t=$('#trash');
+  if(on){const r=$('#dock').getBoundingClientRect();Object.assign(t.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:(innerHeight-r.top)+'px'});trashRect={left:r.left,right:r.right,top:r.top,bottom:innerHeight};t.classList.remove('hide','hot')}
+  else{t.classList.add('hide');t.classList.remove('hot');trashRect=null}}
 const cp=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
 function hit(p){const W=cv.width,H=cv.height;
   for(let i=layers.length-1;i>=0;i--){const l=layers[i];if(l.tile)continue;const d=dims(cx,l,W,H),a=-l.rot*Math.PI/180,dx=p.x-l.x*W,dy=p.y-l.y*H;
@@ -423,16 +429,18 @@ function hit(p){const W=cv.width,H=cv.height;
 cv.addEventListener('pointerdown',e=>{if(!cur||!cur.el)return;cv.setPointerCapture(e.pointerId);const p=cp(e);pts.set(e.pointerId,p);$('#hint').style.opacity=0;
   if(pts.size===1){const h=hit(p);if(h>=0&&h!==act){act=h;syncAll()}const l=L();if(!l)return;
     const now=Date.now();if(h>=0&&now-lastTap<320&&l.k==='t'){setTab('text');$('#text').focus()}lastTap=now;
-    drag={dx:p.x-l.x*cv.width,dy:p.y-l.y*cv.height}}
-  else if(pts.size===2&&L()){const[a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,ang:Math.atan2(b.y-a.y,b.x-a.x),size:L().size,rot:L().rot};drag=null}});
+    drag={dx:p.x-l.x*cv.width,dy:p.y-l.y*cv.height,sx:e.clientX,sy:e.clientY,moved:false}}
+  else if(pts.size===2&&L()){trash(false);const[a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,ang:Math.atan2(b.y-a.y,b.x-a.x),size:L().size,rot:L().rot};drag=null}});
 cv.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;const p=cp(e);pts.set(e.pointerId,p);const l=L();if(!l)return;
   if(pinch&&pts.size>=2){const[a,b]=[...pts.values()];l.size=Math.min(.5,Math.max(.0025,pinch.size*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d));
     let r=Math.round(pinch.rot+(Math.atan2(b.y-a.y,b.x-a.x)-pinch.ang)*180/Math.PI);r=((r+540)%360)-180;l.rot=Math.abs(r)<4?0:r;
     $('#size').value=Math.round(l.size*(l.k==='t'?400:200));$('#rot').value=l.rot;labels();render()}
-  else if(drag){l.x=Math.min(1,Math.max(0,(p.x-drag.dx)/cv.width));l.y=Math.min(1,Math.max(0,(p.y-drag.dy)/cv.height));
+  else if(drag){if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>6){drag.moved=true;trash(true)}
+    if(drag.moved){const r=trashRect;drag.hot=!!r&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;$('#trash').classList.toggle('hot',drag.hot)}
+    l.x=Math.min(1,Math.max(0,(p.x-drag.dx)/cv.width));l.y=Math.min(1,Math.max(0,(p.y-drag.dy)/cv.height));
     guide.x=Math.abs(l.x-.5)<.015;guide.y=Math.abs(l.y-.5)<.015;if(guide.x)l.x=.5;if(guide.y)l.y=.5;render()}});
 const up=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;
-  if(!pts.size){drag=null;guide={x:false,y:false};render();commit()}
+  if(!pts.size){const del=drag&&drag.hot;drag=null;guide={x:false,y:false};trash(false);if(del)delLayer();else{render();commit()}}
   else if(pts.size===1&&L()){const p=[...pts.values()][0];drag={dx:p.x-L().x*cv.width,dy:p.y-L().y*cv.height}}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 

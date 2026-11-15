@@ -1,5 +1,5 @@
 // 浮水印印 service worker：離線可用 + 接收從相簿分享進來的檔案
-const VER = 'wm-1.5.3';
+const VER = 'wm-1.6.0';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './favicon.png'];
 
 self.addEventListener('install', e => {
