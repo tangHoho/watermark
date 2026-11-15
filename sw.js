@@ -1,5 +1,5 @@
 // 浮水印印 service worker：離線可用 + 接收從相簿分享進來的檔案
-const VER = 'wm-1.6.0';
+const VER = 'wm-1.6.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './favicon.png'];
 
 self.addEventListener('install', e => {
@@ -28,10 +28,15 @@ self.addEventListener('fetch', e => {
   }
   if (req.method !== 'GET') return;
 
-  // 頁面：先用網路拿最新版，沒網路時用快取
+  // 頁面與 manifest（App 名稱、icon 設定）：一律先用網路拿最新版，沒網路時才用快取
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(VER).then(c => c.put('./index.html', cp)); return r; })
+    e.respondWith(fetch(req, {cache: 'no-store'}).then(r => { const cp = r.clone(); caches.open(VER).then(c => c.put('./index.html', cp)); return r; })
       .catch(() => caches.match('./index.html')));
+    return;
+  }
+  if (url.origin === location.origin && /\.webmanifest$/.test(url.pathname)) {
+    e.respondWith(fetch(req, {cache: 'no-store'}).then(r => { const cp = r.clone(); caches.open(VER).then(c => c.put(req, cp)); return r; })
+      .catch(() => caches.match(req)));
     return;
   }
   // 自己的檔案和 Google 字型：先用快取，背景更新
