@@ -28,6 +28,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Noto Sans TC"
 .ic.s{width:16px;height:16px}
 header{display:flex;align-items:center;gap:6px;padding:6px 8px;flex:none}
 #ver{font-size:11px;color:var(--mute);margin-right:auto;padding-left:4px}
+body:not(.start) #ver{visibility:hidden}
 body.start header{position:fixed;top:env(safe-area-inset-top);left:0;right:0;z-index:2;pointer-events:none}body.start header>*{pointer-events:auto}
 button,.btn{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--pane);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;position:relative;white-space:nowrap}
 button:disabled{opacity:.35;cursor:default}
@@ -221,7 +222,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.6.2';
+const VERSION='1.6.3';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
