@@ -1,6 +1,6 @@
 {
-  "name": "浮水印小工具",
-  "short_name": "浮水印",
+  "name": "浮水印印",
+  "short_name": "浮水印印",
   "description": "幫照片和影片加浮水印，不用登入，可批量輸出",
   "id": "./",
   "start_url": "./",
