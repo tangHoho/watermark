@@ -28,7 +28,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Noto Sans TC"
 .ic.s{width:16px;height:16px}
 header{display:flex;align-items:center;gap:6px;padding:6px 8px;flex:none}
 #ver{font-size:11px;color:var(--mute);margin-right:auto;padding-left:4px}
-body:not(.start) #ver{visibility:hidden}
+body:not(.start) #ver{display:none}
+body:not(.start) header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
+header .hl,header .hc,header .hr{display:flex;align-items:center;gap:4px}
+header .hr{justify-content:flex-end;gap:8px}
+header .ib{border-color:transparent;background:transparent}
+header .hc .ib{width:48px}
+body:not(.start) #inst{display:none!important}
 body.start header{justify-content:flex-end}
 body.start #ver{position:fixed;left:0;right:0;bottom:calc(22px + env(safe-area-inset-bottom));text-align:center;margin:0;padding:0;font-size:12px;pointer-events:none}
 body.start header{position:fixed;top:env(safe-area-inset-top);left:0;right:0;z-index:2;pointer-events:none}body.start header>*{pointer-events:auto}
@@ -158,11 +164,15 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <header>
   <small id="ver"></small>
-  <button class="hide" id="inst" aria-label="安裝成 App"><svg class="ic"><use href="#i-phone"/></svg>安裝</button>
-  <button class="ib hide" id="undo" aria-label="上一步" title="上一步" disabled><svg class="ic"><use href="#i-undo"/></svg></button>
-  <button class="ib hide" id="redo" aria-label="下一步" title="下一步" disabled><svg class="ic"><use href="#i-redo"/></svg></button>
-  <label class="btn ib hide" id="addb" aria-label="加入更多檔案" title="加入更多檔案"><svg class="ic"><use href="#i-addimg"/></svg><input type="file" accept="image/*,video/*,.heic,.heif" multiple id="f2"></label>
-  <button class="pri hide" id="go"><svg class="ic"><use href="#i-export"/></svg><span id="goT">輸出</span></button>
+  <div class="hl"><label class="btn ib hide" id="addb" aria-label="加入更多檔案" title="加入更多檔案"><svg class="ic"><use href="#i-addimg"/></svg><input type="file" accept="image/*,video/*,.heic,.heif" multiple id="f2"></label></div>
+  <div class="hc">
+    <button class="ib hide" id="undo" aria-label="上一步" title="上一步" disabled><svg class="ic"><use href="#i-undo"/></svg></button>
+    <button class="ib hide" id="redo" aria-label="下一步" title="下一步" disabled><svg class="ic"><use href="#i-redo"/></svg></button>
+  </div>
+  <div class="hr">
+    <button class="hide" id="inst" aria-label="安裝成 App"><svg class="ic"><use href="#i-phone"/></svg>安裝</button>
+    <button class="pri hide" id="go"><svg class="ic"><use href="#i-export"/></svg><span id="goT">輸出</span></button>
+  </div>
 </header>
 
 <label id="empty" aria-label="選擇照片或影片">
@@ -224,7 +234,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.6.4';
+const VERSION='1.6.5';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
