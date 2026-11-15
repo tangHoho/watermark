@@ -1,5 +1,5 @@
 // 浮水印小工具 service worker：離線可用 + 接收從相簿分享進來的檔案
-const VER = 'wm-1.2.0';
+const VER = 'wm-1.3.0';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './favicon.png'];
 
 self.addEventListener('install', e => {
@@ -35,7 +35,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // 自己的檔案和 Google 字型：先用快取，背景更新
-  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || url.hostname === 'cdn.jsdelivr.net') {
     e.respondWith(caches.open(VER).then(async c => {
       const hit = await c.match(req);
       const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => hit);
