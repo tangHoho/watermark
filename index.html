@@ -45,6 +45,11 @@ button:focus-visible,textarea:focus-visible,.btn:focus-within{outline:3px solid 
 #empty .plus{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;background:var(--pane);border:1px solid var(--line);color:var(--acc)}
 #empty .plus svg{width:40px;height:40px;stroke-width:2.2}
 #empty input{position:absolute;opacity:0;width:1px;height:1px}
+.hello{display:grid;justify-items:center;gap:6px;text-align:center;padding:24px}
+.hello .plus{margin-bottom:10px}
+.hello b{font-size:20px;font-weight:700}
+.hello span:not(.plus){font-size:15px;color:var(--mute)}
+.hello small{font-size:13px;color:var(--mute);opacity:.8;margin-top:6px}
 /* app */
 #app{flex:1;min-height:0;display:flex;flex-direction:column}
 #strip{flex:none;padding-top:0;padding-bottom:8px}
@@ -155,7 +160,12 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 </header>
 
 <label id="empty" aria-label="選擇照片或影片">
-  <span class="plus"><svg class="ic"><use href="#i-plus"/></svg></span>
+  <span class="hello">
+    <span class="plus"><svg class="ic"><use href="#i-plus"/></svg></span>
+    <b>選照片或影片</b>
+    <span>可多選，套同一個浮水印一起輸出</span>
+    <small id="tip">不用登入・檔案不會上傳</small>
+  </span>
   <input type="file" accept="image/*,video/*,.heic,.heif" multiple id="f1">
 </label>
 
@@ -208,7 +218,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.5.2';
+const VERSION='1.5.3';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
@@ -538,6 +548,7 @@ function resultView(){
 let instEvt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEvt=e;$('#inst').classList.remove('hide')});
 $('#inst').addEventListener('click',async()=>{if(!instEvt)return;instEvt.prompt();try{await instEvt.userChoice}catch(e){}instEvt=null;$('#inst').classList.add('hide')});
+if(matchMedia('(display-mode: standalone)').matches)$('#tip').textContent='也可以在相簿按「分享 → 浮水印印」直接打開';
 window.addEventListener('appinstalled',()=>{$('#inst').classList.add('hide');toast('已安裝到主畫面')});
 try{if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.claude)navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{})}catch(e){}
 
