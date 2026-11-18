@@ -244,7 +244,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.7.0';
+const VERSION='1.7.1';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
@@ -383,7 +383,6 @@ function strip(){
   $('#scope').classList.toggle('hide',items.length<2);
   const one=!!(cur&&cur.own);
   $$('.seg button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='one')===one));
-  $('.seg [data-s=all]').textContent=`全部檔案 ${items.length}`;
   $('#applyAll').classList.toggle('hide',!one);
 }
 $('#strip').addEventListener('click',e=>{const b=e.target.closest('.th');if(!b)return;const it=items[+b.dataset.i];
