@@ -73,6 +73,12 @@ button:focus-visible,textarea:focus-visible,.btn:focus-within{outline:3px solid 
 #cv{touch-action:none;cursor:grab;display:block}
 #hint{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;font-size:13px;color:#fff;background:#000a;padding:4px 12px;border-radius:99px;pointer-events:none;white-space:nowrap;transition:opacity .4s;display:flex;gap:6px;align-items:center}
 #dock{flex:none;padding:2px 0 env(safe-area-inset-bottom)}
+#scope{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px 0}
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--pane);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{min-height:34px;border:0;border-radius:9px;background:transparent;font-size:13px;padding:0 12px;color:var(--mute)}
+.seg button.on{background:var(--acc);color:#fff;font-weight:700}
+.link{border:0;background:none;color:var(--acc);font-size:13px;min-height:34px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
+.th .own{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:16px;text-align:center;color:#fff;background:#ff6b4acc;font-style:normal}
 #chips>*{flex:none;font-size:14px;min-height:38px;padding:0 12px;border-radius:99px}
 #chips .add{color:var(--acc);border-style:dashed}
 #pane{height:150px;overflow-y:auto;padding:4px 12px}
@@ -189,6 +195,10 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
   <div id="strip" class="row-scroll"></div>
   <div id="stage"><canvas id="cv"></canvas><span id="hint"><svg class="ic s"><use href="#i-hand"/></svg>拖曳移動 · 兩指縮放旋轉 · 點兩下改字</span></div>
   <div id="dock">
+    <div id="scope" class="hide">
+      <div class="seg"><button data-s="all">全部檔案</button><button data-s="one">只改這個</button></div>
+      <button id="applyAll" class="link hide">套用到全部</button>
+    </div>
     <div id="chips" class="row-scroll"></div>
     <div id="pane">
       <div class="sec" data-t="text" data-n="文字">
@@ -234,13 +244,13 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px;margin:0}
 
 <script>
 {
-const VERSION='1.6.6';
+const VERSION='1.7.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const cv=$('#cv'),cx=cv.getContext('2d');
 const FONTS=[['Noto Sans TC','黑體',900],['Noto Serif TC','明體',700],['LXGW WenKai TC','楷書',400],['Pacifico','Script',400],['Bebas Neue','Bebas',400]];
 const COLORS=['#ffffff','#000000','#ff6b4a','#ffd166','#06d6a0','#4cc9f0','#c77dff'];
-let items=[],cur=null,layers=[],act=0,dl=null,busy=false,tab='text',cancel=false,guide={x:false,y:false};
+let items=[],cur=null,shared=[],layers=shared,act=0,dl=null,busy=false,tab='text',cancel=false,guide={x:false,y:false};
 const newText=()=>({k:'t',text:'© HoHo',font:0,color:'#ffffff',size:.07,op:.85,rot:0,x:.8,y:.92,shadow:true,stroke:false,box:false,tile:false});
 const newImg=(img,src)=>({k:'i',img,src,size:.25,op:.9,rot:0,x:.84,y:.1,shadow:false,tile:false});
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -306,18 +316,27 @@ new ResizeObserver(fit).observe($('#stage'));
 let hist=[],fut=[],state=null;
 const clone=a=>a.map(l=>({...l}));
 const keyOf=a=>JSON.stringify(a,(k,v)=>k==='img'?undefined:k==='src'?(v?v.length+v.slice(-24):v):v);
-function store(){try{localStorage.setItem('wm.layers',JSON.stringify(layers.map(l=>{const o={...l};delete o.img;if(o.src&&o.src.length>1.5e6)o.src=null;return o}).filter(l=>l.k==='t'||l.src)))}catch(e){}}
+function store(){try{localStorage.setItem('wm.layers',JSON.stringify(shared.map(l=>{const o={...l};delete o.img;if(o.src&&o.src.length>1.5e6)o.src=null;return o}).filter(l=>l.k==='t'||l.src)))}catch(e){}}
+const snap=()=>({sh:clone(shared),own:items.map(i=>[i,i.own?clone(i.own):null]),cur,a:act});
+const keyS=x=>keyOf([x.sh,x.own.map(p=>p[1])]);
 function commit(){
-  store();
-  if(state&&keyOf(state)===keyOf(layers))return;
-  if(state){hist.push({l:state,a:act});if(hist.length>60)hist.shift()}
-  state=clone(layers);fut=[];ubtn();
+  store();strip();
+  const now=snap();
+  if(state&&keyS(state)===keyS(now))return;
+  if(state){hist.push(state);if(hist.length>60)hist.shift()}
+  state=now;fut=[];ubtn();
 }
 function ubtn(){$('#undo').disabled=!hist.length;$('#redo').disabled=!fut.length}
-function restore(s){layers=clone(s.l);state=clone(s.l);act=Math.min(s.a,Math.max(0,layers.length-1));syncAll();store();ubtn()}
-function undo(){if(!hist.length)return;fut.push({l:state,a:act});restore(hist.pop())}
-function redo(){if(!fut.length)return;hist.push({l:state,a:act});restore(fut.pop())}
-$('#undo').addEventListener('click',undo);$('#redo').addEventListener('click',redo);
+function restore(x){
+  shared=clone(x.sh);items.forEach(i=>{const e=x.own.find(p=>p[0]===i);i.own=e&&e[1]?clone(e[1]):null});
+  state=x;layers=cur&&cur.own?cur.own:shared;act=Math.min(x.a,Math.max(0,layers.length-1));syncAll();strip();store();ubtn()}
+function undo(){if(!hist.length)return;fut.push(state);restore(hist.pop())}
+function redo(){if(!fut.length)return;hist.push(state);restore(fut.pop())}
+$('#undo').addEventListener('click',undo);
+$('.seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!cur)return;
+  if(b.dataset.s==='one'&&!cur.own){cur.own=clone(shared);layers=cur.own;syncAll();commit();toast('現在只會改這個檔案')}
+  else if(b.dataset.s==='all'&&cur.own){cur.own=null;layers=shared;act=Math.min(act,Math.max(0,layers.length-1));syncAll();commit();toast('改回跟全部檔案一樣')}});
+$('#applyAll').addEventListener('click',()=>{if(!cur||!cur.own)return;shared=clone(cur.own);items.forEach(i=>i.own=null);layers=shared;syncAll();commit();toast('已套用到全部檔案')});$('#redo').addEventListener('click',redo);
 document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.target.tagName==='TEXTAREA')return;const k=e.key.toLowerCase();
   if(k==='z'&&!e.shiftKey){e.preventDefault();undo()}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo()}});
 
@@ -345,22 +364,27 @@ async function addFiles(list){
     ov.classList.remove('show');all=out;if(bad)toast(`有 ${bad} 張 HEIC 轉換失敗`)}
   const fs=all.filter(f=>/^(image|video)\//.test(f.type));if(!fs.length)return;
   fs.forEach(f=>items.push({file:f,url:URL.createObjectURL(f),type:f.type.startsWith('video')?'video':'image',mime:f.type,name:f.name.replace(/\.[^.]+$/,'')||'media'}));
-  if(!layers.length)layers=[newText()];
-  if(!state)state=clone(layers);
+  if(!shared.length)shared.push(newText());
+  if(!cur)layers=shared;
   $('#empty').classList.add('hide');document.body.classList.remove('start');$('#app').classList.remove('hide');
   ['#addb','#go','#undo','#redo'].forEach(s=>$(s).classList.remove('hide'));
-  select(cur&&items.includes(cur)?cur:items[items.length-fs.length]);syncAll();ubtn();
+  select(cur&&items.includes(cur)?cur:items[items.length-fs.length]);if(!state)state=snap();ubtn();
 }
 async function select(it){
   if(cur&&cur.el&&cur.type==='video')cur.el.pause();
-  cur=it;strip();
+  cur=it;layers=it.own||shared;act=Math.min(act,Math.max(0,layers.length-1));strip();syncAll();
   try{await loadEl(it);if(cur!==it)return;if(it.type==='video')it.el.play().catch(()=>{});fit()}catch(e){toast(e.message)}
 }
 const thumbInner=it=>it.type==='video'?`<video src="${it.url}#t=0.1" muted playsinline preload="metadata"></video><span class="vt"><svg><use href="#i-play"/></svg></span>`:`<img src="${it.url}" alt="">`;
 function strip(){
   const s=$('#strip');s.classList.toggle('hide',items.length<2);
-  s.innerHTML=items.map((it,i)=>`<button class="th ${it===cur?'on':''}" data-i="${i}" aria-label="${esc(it.name)}">${thumbInner(it)}${it===cur&&items.length>1?`<span class="x" data-x="1" aria-label="移除">${ic('x')}</span>`:''}</button>`).join('');
+  s.innerHTML=items.map((it,i)=>`<button class="th ${it===cur?'on':''}" data-i="${i}" aria-label="${esc(it.name)}${it.own?'（個別設定）':''}">${thumbInner(it)}${it.own?'<span class="own">個別</span>':''}${it===cur&&items.length>1?`<span class="x" data-x="1" aria-label="移除">${ic('x')}</span>`:''}</button>`).join('');
   $('#goT').textContent=items.length>1?`輸出 ${items.length}`:'輸出';
+  $('#scope').classList.toggle('hide',items.length<2);
+  const one=!!(cur&&cur.own);
+  $$('.seg button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='one')===one));
+  $('.seg [data-s=all]').textContent=`全部檔案 ${items.length}`;
+  $('#applyAll').classList.toggle('hide',!one);
 }
 $('#strip').addEventListener('click',e=>{const b=e.target.closest('.th');if(!b)return;const it=items[+b.dataset.i];
   if(e.target.closest('[data-x]')){URL.revokeObjectURL(it.url);items.splice(+b.dataset.i,1);select(items[Math.min(+b.dataset.i,items.length-1)]);return}
@@ -458,13 +482,13 @@ const up=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 
 /* ---------- remember last design (this device only) ---------- */
-try{const s=JSON.parse(localStorage.getItem('wm.layers')||'null');if(Array.isArray(s))s.forEach(o=>{if(o.k==='t')layers.push(o);else{const im=new Image();im.onload=render;im.src=o.src;o.img=im;layers.push(o)}})}catch(e){}
+try{const s=JSON.parse(localStorage.getItem('wm.layers')||'null');if(Array.isArray(s))s.forEach(o=>{if(o.k==='t')shared.push(o);else{const im=new Image();im.onload=render;im.src=o.src;o.img=im;shared.push(o)}})}catch(e){}
 
 /* ---------- export ---------- */
 const ov=$('#ov'),card=$('#card');
 async function expImage(it){
   await loadEl(it);const c=document.createElement('canvas');c.width=it.w;c.height=it.h;const g=c.getContext('2d');
-  g.drawImage(it.el,0,0);layers.forEach(l=>drawLayer(g,l,it.w,it.h));
+  g.drawImage(it.el,0,0);(it.own||shared).forEach(l=>drawLayer(g,l,it.w,it.h));
   const png=it.mime==='image/png';const blob=await new Promise(r=>c.toBlob(r,png?'image/png':'image/jpeg',.93));
   if(!blob)throw new Error('圖片太大');return{blob,name:`${it.name}_浮水印.${png?'png':'jpg'}`};
 }
@@ -478,7 +502,7 @@ function expVideo(it,onp){
     try{await new Promise((r,j)=>{v.onloadeddata=r;v.onerror=()=>j(new Error('影片讀不了'));v.src=it.url})}catch(e){v.remove();return reject(e)}
     const sc=Math.min(1,1920/Math.max(v.videoWidth,v.videoHeight)),W=Math.round(v.videoWidth*sc/2)*2,H=Math.round(v.videoHeight*sc/2)*2;
     const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
-    const draw=()=>{g.drawImage(v,0,0,W,H);layers.forEach(l=>drawLayer(g,l,W,H))};draw();
+    const lay=it.own||shared,draw=()=>{g.drawImage(v,0,0,W,H);lay.forEach(l=>drawLayer(g,l,W,H))};draw();
     const stream=c.captureStream(30);let ac=null;
     try{ac=new AudioContext();const src=ac.createMediaElementSource(v),dst=ac.createMediaStreamDestination();src.connect(dst);dst.stream.getAudioTracks().forEach(t=>stream.addTrack(t));await ac.resume()}catch(e){}
     const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:W*H>1e6?9e6:5e6});const chunks=[];let stopped=false;
